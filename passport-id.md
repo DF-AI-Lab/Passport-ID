@@ -74,12 +74,14 @@ Use the Google account that has your Drive and Sheets.
 Every login screen has the same parts:
 
 - **App section** (each app fills this in): logo, app name, tagline
-- Welcome back + passport ID
+- Welcome back + first name (the ID stays hidden: it links apps behind the scenes)
 - 6-digit passcode (or fingerprint button)
 - "Forgot? Use a backup code"
 - Main button (each app writes its own text)
 - "Saves to Drive: DF123456 / app"
 - "Use another Google account"
+
+Each app's **Settings** page shows: "Your passport: DF123456".
 
 Each app has a `theme.json` holding its logo, colours, font and button text.
 
@@ -176,3 +178,4 @@ Each app keeps its **own copy**, so it doesn't need this repo to run.
 - 1 Nov 2026: moved here to its own repo
 - 1 Nov 2026: Google sign-in, open to anyone, per-app themes, how apps get it, updates
 - 1 Nov 2026: fingerprint login added
+- 1 Nov 2026: ID hidden on login, shown in Settings only

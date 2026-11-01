@@ -1,0 +1,26 @@
+{
+  "name": "TaskNotes",
+  "tagline": "Tasks and notes, one place.",
+  "button": "Open my notes",
+  "drive": "Todo",
+  "font": "Manrope",
+  "fontUrl": "https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&display=swap",
+  "align": "center",
+  "logo": {
+    "type": "text",
+    "value": "TN"
+  },
+  "colors": {
+    "bg": "#101827",
+    "text": "#E6EAF2",
+    "muted": "#8E9BB5",
+    "accent": "#6EA0FF",
+    "accentText": "#101827",
+    "field": "#172133",
+    "fieldBorder": "#2C3A55",
+    "link": "#8FB5FF",
+    "error": "#FF8A80",
+    "tile": "#6EA0FF",
+    "tileText": "#101827"
+  }
+}
