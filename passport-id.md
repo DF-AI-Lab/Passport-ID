@@ -103,12 +103,14 @@ Each app keeps its **own copy**, so it doesn't need this repo to run.
 
 ---
 
-## 7. Updates (choice: copy + version number)
+## 7. Updates (choice: copy + version number, one chat)
 
 - This repo has a version: **v1, v2 …**
 - Each app records which version it has in `PASSPORT.md`
-- **A GitHub bot in each app** checks once a week. If there's a newer version, it opens a pull request on its own. Darren just taps **Merge**.
-- Why copy, not a live link: one bad update can't break every app at once.
+- One Claude chat with all app repos added. Darren says: **"update Passport in all apps"**
+- Claude copies the new version into each app repo and pushes
+- The apps run on **GitHub Pages**, so the push makes them live. No bot needed.
+- Why copy, not a live link: each app is updated on purpose, so one bad change doesn't silently hit every app.
 
 ---
 
@@ -158,7 +160,7 @@ Each app keeps its **own copy**, so it doesn't need this repo to run.
 - Google sign-in links everything (no separate username)
 - API keys out of scope (stay in Cloudflare)
 - Each app keeps its own look; login steps are the same
-- Updates: copy + version number, with a GitHub bot that opens a pull request
+- Updates: copy + version number, pushed from one chat (apps run on GitHub Pages)
 
 ## Change log
 
