@@ -51,8 +51,15 @@ Use the Google account that has your Drive and Sheets.
 1. Sign in with Google (this picks the account and the Drive)
 2. Type full name + make a 6-digit passcode
 3. Save your 10 backup codes
+4. "Turn on fingerprint?" → Yes (optional)
 
-**Every time after:** lock screen, type the 6-digit passcode.
+**Every time after:** lock screen → fingerprint 👆, or type the 6-digit passcode.
+
+**Fingerprint (built into Passport, not each app):**
+- Uses the phone's own fingerprint / face unlock (passkeys / WebAuthn)
+- The fingerprint never leaves the phone; the app only gets "yes, it's them"
+- Linked to one phone + one app's web address, so turn it on once per app, per phone
+- Passcode always works as the fallback
 
 **Second app:** sign in with Google, Firebase finds your ID, "Welcome back". No sign-up again.
 
@@ -68,7 +75,7 @@ Every login screen has the same parts:
 
 - **App section** (each app fills this in): logo, app name, tagline
 - Welcome back + passport ID
-- 6-digit passcode
+- 6-digit passcode (or fingerprint button)
 - "Forgot? Use a backup code"
 - Main button (each app writes its own text)
 - "Saves to Drive: DF123456 / app"
@@ -161,9 +168,11 @@ Each app keeps its **own copy**, so it doesn't need this repo to run.
 - API keys out of scope (stay in Cloudflare)
 - Each app keeps its own look; login steps are the same
 - Updates: copy + version number, pushed from one chat (apps run on GitHub Pages)
+- Fingerprint login is part of Passport (every app gets it the same way)
 
 ## Change log
 
 - 1 Nov 2026: first version (written in app-assistant)
 - 1 Nov 2026: moved here to its own repo
 - 1 Nov 2026: Google sign-in, open to anyone, per-app themes, how apps get it, updates
+- 1 Nov 2026: fingerprint login added
