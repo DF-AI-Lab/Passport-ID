@@ -3,6 +3,7 @@
 
 const PassportUI = (() => {
   let T, APP, root, onUnlocked, timer;
+  let autoFinger = true; // pop fingerprint up by itself once per lock (not again after a cancel or wrong passcode)
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const first = (name) => esc(String(name || '').split(' ')[0]);
   const icon = {
@@ -34,7 +35,7 @@ const PassportUI = (() => {
   const on = (s, ev, fn) => { const el = $(s); if (el) el.addEventListener(ev, fn); };
   const busy = (btn, text) => { btn.disabled = true; btn.dataset.t = btn.textContent; btn.textContent = text; };
 
-  function unlock() { Passport.setUnlocked(APP, true); route(); }
+  function unlock() { Passport.setUnlocked(APP, true); autoFinger = true; route(); }
 
   // ---------- router ----------
   function route() {
@@ -177,10 +178,11 @@ const PassportUI = (() => {
       <button class="ps-link" id="other">Use another Google account</button>`);
     on('#fg', 'click', backupLogin);
     on('#other', 'click', () => { Passport.signOut(APP); Passport.setUnlocked(APP, false); welcome(); });
-    on('#fp', 'click', async () => {
+    const tryFinger = async (quiet) => {
       try { if (await Passport.verifyFingerprint(email, APP)) unlock(); }
-      catch { $('#msg').innerHTML = err('Fingerprint didn\'t work. Use your passcode.'); }
-    });
+      catch { if (!quiet) $('#msg').innerHTML = err('Fingerprint didn\'t work. Use your passcode.'); }
+    };
+    on('#fp', 'click', () => tryFinger(false));
     on('#f', 'submit', async (e) => {
       e.preventDefault();
       const btn = $('#go'); busy(btn, 'Checking…');
@@ -188,7 +190,9 @@ const PassportUI = (() => {
       if (r.ok) return unlock();
       login(r.lockedMs ? '' : `Wrong passcode. ${r.triesLeft} ${r.triesLeft === 1 ? 'try' : 'tries'} left.`);
     });
-    if (lockMs) lockCountdown();
+    if (lockMs) return lockCountdown();
+    // fingerprint on → pop it up straight away (cancel = type passcode instead)
+    if (canFinger && autoFinger && !msg) { autoFinger = false; tryFinger(true); }
   }
 
   function lockCountdown() {
