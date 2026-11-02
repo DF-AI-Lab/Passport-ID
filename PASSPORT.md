@@ -21,7 +21,7 @@ passport/
 ```
 
 Add at the bottom of the app's `passport/PASSPORT.md`:
-`This app has Passport v0.3.2. Update from DF-AI-Lab/Passport-ID.`
+`This app has Passport v0.3.3. Update from DF-AI-Lab/Passport-ID.`
 
 ---
 
@@ -50,12 +50,14 @@ fetch('passport/theme.json').then((r) => r.json()).then((theme) =>
     theme,
     mount: document.getElementById('login'),
     onUnlocked: (passport) => showApp(passport), // hide login, show the app
+    onSignOut: async () => { /* save anything unsent, then clear this app's data on the phone */ },
   }));
 ```
 
 - Settings page: show **"Your passport: " + passport.id**
 - Lock button: `Passport.setUnlocked('wmm', false); location.reload();`
-- Passport settings screen: `PassportUI.settings()`
+- Passport settings screen: `PassportUI.settings()` (has **Lock now** and **Sign out**)
+- Sign out must clear the app's own data on the phone, so the next Google account never sees it
 
 ---
 
