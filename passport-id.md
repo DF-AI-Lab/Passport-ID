@@ -175,6 +175,7 @@ How an app adds it: [PASSPORT.md](PASSPORT.md).
 ## Decided
 
 - Just Darren, passport lives in Drive, no Firebase
+- ONE Google key for every app (project "Wheres My Money Lite"), so all apps see the same Drive files
 - Google sign-in links everything (no separate username)
 - API keys out of scope (stay in Cloudflare)
 - Each app keeps its own look; login steps are the same
@@ -189,3 +190,4 @@ How an app adds it: [PASSPORT.md](PASSPORT.md).
 - 1 Nov 2026: fingerprint login added
 - 1 Nov 2026: ID hidden on login, shown in Settings only
 - 2 Nov 2026: Drive instead of Firebase, just Darren, Reset with Google, v0.2 built
+- 2 Nov 2026: switched to WMM's Google key, so every app shares one key

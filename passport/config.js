@@ -1,6 +1,6 @@
 // Passport settings. The SAME values go in every app.
-// googleClientId: from Google Cloud (see SETUP.md). Not a secret: it's safe in a public repo.
+// googleClientId: the ONE Google key for all apps (Google project "Wheres My Money Lite", see SETUP.md). Not a secret: it's safe in a public repo.
 // Leave it '' and Passport runs in pretend mode (no Google, no Drive).
 window.PASSPORT_CONFIG = {
-  googleClientId: '1055444098416-eg493r89k6n2lsu7tce8nsr6mktf2mmb.apps.googleusercontent.com',
+  googleClientId: '1018863337394-dhhfi006uhdf715dovuqetkl22tj5gdo.apps.googleusercontent.com',
 };

@@ -1,4 +1,17 @@
-# One-time setup: Google key (about 5 minutes)
+# Google key (already done ✅)
+
+**All apps use ONE key**, from the Google project **"Wheres My Money Lite"**:
+`1018863337394-dhhfi006uhdf715dovuqetkl22tj5gdo.apps.googleusercontent.com`
+
+Why one: each key only sees the Drive files **it made**. One key = every app sees the same passport and files.
+
+To let another email sign in: that project → **Google Auth Platform → Audience → Test users → Add users**.
+
+The steps below are only for making a key from scratch again.
+
+---
+
+## (Only if starting over) make a key
 
 Passport needs one **Google client ID**. It lets the apps open Google sign-in and save to your Drive.
 
