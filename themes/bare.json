@@ -1,0 +1,28 @@
+{
+  "name": "[App name]",
+  "tagline": "[Tagline] · [Colours]",
+  "button": "Open [App]",
+  "drive": "[App]",
+  "font": "Inter",
+  "fontUrl": "https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap",
+  "align": "center",
+  "logo": {
+    "type": "text",
+    "value": "LOGO"
+  },
+  "colors": {
+    "bg": "#F6F7F9",
+    "text": "#121826",
+    "muted": "#4A5468",
+    "accent": "#2453D6",
+    "accentText": "#FFFFFF",
+    "field": "#FFFFFF",
+    "fieldBorder": "#C9CFDA",
+    "link": "#2453D6",
+    "error": "#B42318",
+    "tile": "transparent",
+    "tileText": "#5B6577",
+    "tileBorder": "#8A93A5",
+    "tileBorderStyle": "dashed"
+  }
+}

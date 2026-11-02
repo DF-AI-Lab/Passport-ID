@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Passport Demo</title>
+<link rel="stylesheet" href="passport/passport.css?v=0.3.1">
+<style>
+  html, body { margin: 0; min-height: 100%; }
+  body { background: var(--ps-bg, #F6F7F9); display: flex; flex-direction: column; min-height: 100vh; }
+  .demo-bar {
+    display: flex; flex-wrap: wrap; gap: 6px; align-items: center; justify-content: center;
+    padding: 10px 16px; background: #1B1B1F; color: #E8E8EC;
+    font: 13px/1.3 system-ui, sans-serif;
+  }
+  .demo-bar strong { margin-right: 6px; }
+  .demo-bar a { color: #E8E8EC; padding: 6px 10px; border-radius: 8px; text-decoration: none; border: 1px solid #44444C; }
+  .demo-bar a[aria-current="page"] { background: #E8E8EC; color: #1B1B1F; }
+  .demo-bar button { font: inherit; color: #FFB4A9; background: none; border: 1px solid #5A3A36; border-radius: 8px; padding: 6px 10px; cursor: pointer; }
+  #app { flex: 1; display: flex; }
+</style>
+</head>
+<body>
+<nav class="demo-bar" aria-label="Demo apps">
+  <strong id="mode">Demo</strong>
+  <a href="?app=wmm">WMM</a>
+  <a href="?app=ft">Food Tracker</a>
+  <a href="?app=tasknotes">TaskNotes</a>
+  <a href="?app=bare">Bare</a>
+  <button id="reset" type="button">Reset demo</button>
+</nav>
+<div id="app"></div>
+
+<script src="passport/config.js?v=0.3.1"></script>
+<script src="passport/google.js?v=0.3.1"></script>
+<script src="passport/passport.js?v=0.3.1"></script>
+<script src="passport/ui.js?v=0.3.1"></script>
+<script>
+  document.getElementById('mode').textContent = Passport.cloud ? 'Demo · real Google + Drive' : 'Demo · pretend data';
+  const apps = ['wmm', 'ft', 'tasknotes', 'bare'];
+  let app = new URLSearchParams(location.search).get('app');
+  if (!apps.includes(app)) app = 'wmm';
+  document.querySelectorAll('.demo-bar a').forEach((a) => {
+    if (a.getAttribute('href') === '?app=' + app) a.setAttribute('aria-current', 'page');
+  });
+  document.getElementById('reset').addEventListener('click', () => {
+    if (confirm(Passport.cloud ? 'Forget passports on this phone? (Your Drive copy stays.)' : 'Wipe all pretend passports on this device?')) { Passport.resetAll(); location.reload(); }
+  });
+  fetch('themes/' + app + '.json')
+    .then((r) => r.json())
+    .then((theme) => PassportUI.start({ app, theme, mount: document.getElementById('app') }))
+    .catch(() => { document.getElementById('app').textContent = 'Could not load the theme. Open this page through a web server (e.g. GitHub Pages).'; });
+</script>
+</body>
+</html>
