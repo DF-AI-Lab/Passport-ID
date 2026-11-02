@@ -1,13 +1,13 @@
 // Passport — core logic (no screens here; see ui.js).
-// The passport (ID, name, email, scrambled passcode + backup codes) lives in YOUR Google Drive:
-//   DF123456/passport.json   (see google.js)
+// The passport (ID, name, email + the hidden key, locked by your passcode and backup codes)
+// lives in YOUR Google Drive: App data - DON'T DELETE/DF123456/passport.json   (see google.js)
 // This phone keeps a copy so the lock screen works fast and offline.
 // No client ID in config.js = pretend mode (this phone only, no Google).
 
 const Passport = (() => {
-  const VERSION = '0.2';
+  const VERSION = '0.3';
   const cloud = typeof PassportCloud !== 'undefined' && PassportCloud.enabled;
-  const KEY = cloud ? 'passport-v1' : 'passport-demo-v1';
+  const KEY = cloud ? 'passport-v2' : 'passport-demo-v2';
   const MAX_TRIES = 5;          // wrong passcodes before lock
   const LOCK_MS = cloud ? 5 * 60 * 1000 : 30 * 1000; // real: 5 min, pretend: 30s
   const ITER = 100000;          // PBKDF2 rounds (scrambling strength)
@@ -61,12 +61,16 @@ const Passport = (() => {
     const db = load(); const e = norm(email);
     if (!r) { const p = db.passports[e]; if (p) await sync(e).catch(() => {}); return p || null; }
     const remote = r.data, local = db.passports[e];
+    if (remote.v !== 2) { // old test passport: make it again with the same ID
+      remake[e] = { id: remote.id, fileId: r.fileId, folderId: r.folderId };
+      delete db.passports[e]; save(db); return null;
+    }
     let p;
     if (local && local.dirty && local.updated > (remote.updated || 0)) {
       // this phone has newer changes: keep them, but never "un-use" a backup code
       p = local;
-      const used = new Set(remote.backup.filter((b) => b.used).map((b) => b.h));
-      p.backup.forEach((b) => { if (used.has(b.h)) b.used = true; });
+      const used = new Set(remote.backup.filter((b) => b.used).map((b) => b.ct));
+      p.backup.forEach((b) => { if (used.has(b.ct)) b.used = true; });
     } else {
       p = { ...remote, fingerprints: local?.fingerprints || {}, dirty: false };
     }
@@ -78,21 +82,43 @@ const Passport = (() => {
 
   const needsSync = (email) => cloud && !!find(email)?.dirty;
 
-  // ---------- scrambling (never store plain codes) ----------
+  // ---------- the hidden key ----------
+  // One random key per passport. It locks private stuff (Secrets, backups).
+  // passport.json only holds LOCKED copies of it: one opened by the passcode, one by each backup code.
+  // The plain key is never saved anywhere. It lives in memory only while unlocked with passcode/backup code.
   const enc = new TextEncoder();
-  const hex = (buf) => [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('');
-  const randHex = (n) => hex(crypto.getRandomValues(new Uint8Array(n)));
-  async function scramble(salt, text) {
-    const key = await crypto.subtle.importKey('raw', enc.encode(text), 'PBKDF2', false, ['deriveBits']);
-    const bits = await crypto.subtle.deriveBits(
-      { name: 'PBKDF2', salt: enc.encode(salt), iterations: ITER, hash: 'SHA-256' }, key, 256);
-    return hex(bits);
+  const b64 = (buf) => btoa(String.fromCharCode(...new Uint8Array(buf)));
+  const unb64s = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
+  const random = (n) => crypto.getRandomValues(new Uint8Array(n));
+  const randDigits = (n) => [...random(n)].map((b) => b % 10).join('');
+
+  async function boxKey(secret, salt) {
+    const base = await crypto.subtle.importKey('raw', enc.encode(secret), 'PBKDF2', false, ['deriveKey']);
+    return crypto.subtle.deriveKey({ name: 'PBKDF2', hash: 'SHA-256', salt, iterations: ITER }, base,
+      { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
   }
-  const randDigits = (n) => [...crypto.getRandomValues(new Uint8Array(n))].map((b) => b % 10).join('');
+  async function lockKey(secret, mk) { // -> {salt, iv, ct}
+    const salt = random(16), iv = random(12);
+    const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, await boxKey(secret, salt), mk);
+    return { salt: b64(salt), iv: b64(iv), ct: b64(ct) };
+  }
+  async function openKey(box, secret) { // -> key bytes, or null if the secret is wrong
+    try {
+      return new Uint8Array(await crypto.subtle.decrypt({ name: 'AES-GCM', iv: unb64s(box.iv) },
+        await boxKey(secret, unb64s(box.salt)), unb64s(box.ct)));
+    } catch { return null; }
+  }
+
+  let held = null; // { email, mk } while unlocked with passcode / backup code
+  const hold = (e, mk) => { held = { email: e, mk }; };
+  // the hidden key, for the app to lock/unlock its private stuff. null = ask for the passcode first
+  const key = (email) => (held && held.email === norm(email) ? held.mk.slice() : null);
+  const forget = () => { held = null; };
 
   // ---------- helpers ----------
   const norm = (email) => String(email || '').trim().toLowerCase();
   const isPasscode = (c) => /^\d{6}$/.test(String(c));
+  const codeDigits = (c) => String(c).replace(/\D/g, '');
 
   function newId(db) {
     let id;
@@ -100,28 +126,35 @@ const Passport = (() => {
     return id;
   }
 
-  async function makeBackupCodes(salt) {
+  async function makeBackupCodes(mk) {
     const codes = Array.from({ length: 10 }, () => randDigits(4) + '-' + randDigits(4));
-    const hashes = await Promise.all(codes.map((c) => scramble(salt, 'backup:' + c)));
-    return { codes, stored: hashes.map((h) => ({ h, used: false })) };
+    const stored = await Promise.all(codes.map(async (c) => ({ ...(await lockKey('backup:' + codeDigits(c), mk)), used: false })));
+    return { codes, stored };
   }
 
   // ---------- passports ----------
   function find(email) { return load().passports[norm(email)] || null; }
+
+  // old test passports (before the hidden key) get made again, keeping the same ID + Drive file
+  const remake = {};
 
   async function create({ email, name, passcode }) {
     const db = load();
     const e = norm(email);
     if (db.passports[e]) throw new Error('A passport already exists for this account.');
     if (!isPasscode(passcode)) throw new Error('Passcode must be 6 numbers.');
-    const salt = randHex(16);
-    const { codes, stored } = await makeBackupCodes(salt);
+    const mk = random(32);
+    const { codes, stored } = await makeBackupCodes(mk);
+    const old = remake[e] || {};
     db.passports[e] = {
-      id: newId(db), name: String(name).trim(), email: e, salt,
-      pass: await scramble(salt, 'pass:' + passcode),
+      v: 2, id: old.id || newId(db), name: String(name).trim(), email: e,
+      pass: await lockKey('pass:' + passcode, mk),
       backup: stored, fails: 0, lockUntil: 0, fingerprints: {},
       created: new Date().toISOString(),
+      ...(old.fileId ? { fileId: old.fileId, folderId: old.folderId } : {}),
     };
+    delete remake[e];
+    hold(e, mk);
     changed(db, db.passports[e]);
     return { passport: db.passports[e], codes };
   }
@@ -138,44 +171,59 @@ const Passport = (() => {
     return { ok: false, triesLeft: p.lockUntil > Date.now() ? 0 : MAX_TRIES - p.fails, lockedMs: Math.max(0, p.lockUntil - Date.now()) };
   }
 
-  // returns { ok } or { ok:false, triesLeft, lockedMs }
+  // returns { ok } or { ok:false, triesLeft, lockedMs }. Right passcode also opens the hidden key.
   async function checkPasscode(email, passcode) {
-    const db = load(); const p = db.passports[norm(email)];
+    const db = load(); const e = norm(email); const p = db.passports[e];
     if (!p) return { ok: false, triesLeft: 0, lockedMs: 0 };
     if (p.lockUntil > Date.now()) return { ok: false, triesLeft: 0, lockedMs: p.lockUntil - Date.now() };
-    if (isPasscode(passcode) && (await scramble(p.salt, 'pass:' + passcode)) === p.pass) {
+    const mk = isPasscode(passcode) ? await openKey(p.pass, 'pass:' + passcode) : null;
+    if (mk) {
+      hold(e, mk);
       if (p.fails) { p.fails = 0; changed(db, p); }
       return { ok: true };
     }
     return recordFail(db, p);
   }
 
-  // a backup code works once
+  // a backup code works once (and opens the hidden key)
   async function useBackupCode(email, code) {
-    const db = load(); const p = db.passports[norm(email)];
+    const db = load(); const e = norm(email); const p = db.passports[e];
     if (!p) return { ok: false, triesLeft: 0, lockedMs: 0 };
     if (p.lockUntil > Date.now()) return { ok: false, triesLeft: 0, lockedMs: p.lockUntil - Date.now() };
-    const clean = String(code).replace(/\D/g, '');
+    const clean = codeDigits(code);
     if (clean.length === 8) {
-      const h = await scramble(p.salt, 'backup:' + clean.slice(0, 4) + '-' + clean.slice(4));
-      const hit = p.backup.find((b) => !b.used && b.h === h);
-      if (hit) { hit.used = true; p.fails = 0; changed(db, p); return { ok: true, left: backupLeft(p) }; }
+      for (const b of p.backup) {
+        if (b.used) continue;
+        const mk = await openKey(b, 'backup:' + clean);
+        if (mk) { b.used = true; p.fails = 0; hold(e, mk); changed(db, p); return { ok: true, left: backupLeft(p) }; }
+      }
     }
     return recordFail(db, p);
   }
 
   const backupLeft = (p) => p.backup.filter((b) => !b.used).length;
 
+  // new passcode. With the key open (after a backup code): same key.
+  // Without it (Reset with Google): a NEW key + new backup codes; old private stuff can't be opened. Returns new codes then.
   async function setPasscode(email, passcode) {
     if (!isPasscode(passcode)) throw new Error('Passcode must be 6 numbers.');
-    const db = load(); const p = db.passports[norm(email)];
-    p.pass = await scramble(p.salt, 'pass:' + passcode);
+    const db = load(); const e = norm(email); const p = db.passports[e];
+    let mk = key(e), codes = null;
+    if (!mk) {
+      mk = random(32);
+      const made = await makeBackupCodes(mk);
+      codes = made.codes; p.backup = made.stored; hold(e, mk);
+    }
+    p.pass = await lockKey('pass:' + passcode, mk);
     changed(db, p);
+    return codes;
   }
 
+  // needs the key open (passcode typed this visit). Returns null if not.
   async function newBackupCodes(email) {
+    const mk = key(email); if (!mk) return null;
     const db = load(); const p = db.passports[norm(email)];
-    const { codes, stored } = await makeBackupCodes(p.salt);
+    const { codes, stored } = await makeBackupCodes(mk);
     p.backup = stored; changed(db, p);
     return codes;
   }
@@ -194,12 +242,12 @@ const Passport = (() => {
   // unlocked = this tab only, until closed or "Lock now"
   const unlockKey = (app) => 'passport-unlocked-' + app;
   function isUnlocked(app) { try { return sessionStorage.getItem(unlockKey(app)) === '1'; } catch { return false; } }
-  function setUnlocked(app, on) { try { on ? sessionStorage.setItem(unlockKey(app), '1') : sessionStorage.removeItem(unlockKey(app)); } catch {} }
+  function setUnlocked(app, on) { if (!on) forget(); try { on ? sessionStorage.setItem(unlockKey(app), '1') : sessionStorage.removeItem(unlockKey(app)); } catch {} }
 
   // ---------- fingerprint (passkeys / WebAuthn) ----------
   // The fingerprint never leaves the phone. Linked to this phone + this web address.
   // The phone does the check and only says "yes, it's them". It unlocks this phone's copy.
-  const b64 = (buf) => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  const b64url = (buf) => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
   const unb64 = (s) => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/')), (c) => c.charCodeAt(0));
 
   async function fingerprintAvailable() {
@@ -220,7 +268,7 @@ const Passport = (() => {
       timeout: 60000,
     } });
     const db = load();
-    db.passports[p.email].fingerprints[app] = b64(cred.rawId);
+    db.passports[p.email].fingerprints[app] = b64url(cred.rawId);
     save(db);
   }
 
@@ -246,7 +294,7 @@ const Passport = (() => {
   }
 
   return {
-    VERSION, MAX_TRIES, cloud, sync, pull, needsSync, find, create, lockedFor, checkPasscode, useBackupCode, backupLeft,
+    VERSION, MAX_TRIES, cloud, key, sync, pull, needsSync, find, create, lockedFor, checkPasscode, useBackupCode, backupLeft,
     setPasscode, newBackupCodes, appAccount, setAppAccount, signOut, appPref, setAppPref,
     isUnlocked, setUnlocked, fingerprintAvailable, enrollFingerprint, verifyFingerprint,
     removeFingerprint, resetAll, isPasscode,

@@ -15,11 +15,11 @@ No client ID in `passport/config.js` = pretend mode (this phone only).
 passport/
   config.js     ← Google client ID (same in every app)
   google.js     ← Google sign-in + Drive
-  passport.js   ← passcode, backup codes, lockout, fingerprint
+  passport.js   ← passcode, backup codes, hidden key, lockout, fingerprint
   ui.js         ← the screens (same steps on every app)
   passport.css  ← shared layout
 themes/
   wmm.json  ft.json  tasknotes.json  bare.json   ← each app's look
 ```
 
-Version: **0.2**
+Version: **0.3** (hidden key)

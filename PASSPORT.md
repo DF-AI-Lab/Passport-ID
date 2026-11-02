@@ -21,7 +21,7 @@ passport/
 ```
 
 Add at the bottom of the app's `passport/PASSPORT.md`:
-`This app has Passport v0.2. Update from DF-AI-Lab/Passport-ID.`
+`This app has Passport v0.3. Update from DF-AI-Lab/Passport-ID.`
 
 ---
 
@@ -68,6 +68,20 @@ const folderId = await PassportCloud.appFolder(passport.id, theme.drive);
 
 Save **all** the app's files inside that folder. Nothing loose in My Drive.
 If the app already has files elsewhere in Drive, move them in here.
+
+---
+
+## 5. Private stuff (Secrets, backups): the hidden key
+
+```js
+const email = Passport.appAccount('tasknotes');
+let bytes = Passport.key(email);   // 32 bytes, or null if only the fingerprint was used
+if (!bytes) PassportUI.needKey(() => { bytes = Passport.key(email); openSecrets(bytes); }, goBack);
+```
+
+- Use the bytes to make the app's own AES key (e.g. HKDF with the app's name)
+- Never save the bytes. Ask again after "Lock now" or a reload.
+- Remove the app's old lock (its own PIN, codes, fingerprint). Passport replaces it.
 
 ---
 

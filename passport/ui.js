@@ -264,7 +264,8 @@ const PassportUI = (() => {
         const me = await PassportCloud.signIn();
         if (me.email.toLowerCase() !== email) return backupLogin('That\'s a different Google account.');
         await Passport.pull(email);
-        newPasscode(Passport.backupLeft(Passport.find(email)));
+        Passport.setUnlocked(APP, false); // no hidden key open = a new one gets made
+        newPasscode(null);
       } catch (e) { backupLogin(signInError(e)); }
     });
     on('#f', 'submit', async (e) => {
@@ -275,9 +276,12 @@ const PassportUI = (() => {
     });
   }
 
+  // left = backup codes left (after a backup code). null = Reset with Google (makes a new hidden key)
   function newPasscode(left, msg) {
     show(`<h2 class="ps-h">Make a new passcode</h2>
-      <p class="ps-sub">${left} backup codes left.</p>
+      <p class="ps-sub">${left === null
+        ? 'You\'ll get new backup codes too. Private stuff locked with the old passcode (like Secrets) can\'t be opened any more.'
+        : `${left} backup codes left.`}</p>
       <form id="f" class="ps-form">
         ${passField('pc', 'New 6-digit passcode')}
         ${passField('pc2', 'Type it again')}
@@ -290,8 +294,30 @@ const PassportUI = (() => {
       if (!Passport.isPasscode(a)) return newPasscode(left, 'Passcode must be exactly 6 numbers.');
       if (a !== b) return newPasscode(left, 'The two passcodes don\'t match.');
       busy($('#go'), 'Saving…');
-      await Passport.setPasscode(Passport.appAccount(APP), a);
-      unlock();
+      const codes = await Passport.setPasscode(Passport.appAccount(APP), a);
+      codes ? backupCodes(codes, unlock) : unlock();
+    });
+  }
+
+  // some things need the hidden key open: after fingerprint it's still locked, so ask for the passcode
+  function needKey(next, back, msg) {
+    const email = Passport.appAccount(APP);
+    if (Passport.key(email)) return next();
+    show(`${appSection(true)}
+      <h2 class="ps-h">Type your passcode</h2>
+      <p class="ps-sub">This needs your passcode, not just your fingerprint.</p>
+      <form id="f" class="ps-form">
+        ${passField('pc', 'Your passcode')}
+        ${err(msg)}
+        <button class="ps-btn" type="submit" id="go">Continue</button>
+        <button class="ps-link" type="button" id="back">Back</button>
+      </form>`);
+    on('#back', 'click', back);
+    on('#f', 'submit', async (e) => {
+      e.preventDefault(); busy($('#go'), 'Checking…');
+      const r = await Passport.checkPasscode(email, $('#pc').value);
+      if (r.ok) return next();
+      needKey(next, back, r.lockedMs ? `Locked: try again in ${Math.ceil(r.lockedMs / 1000)}s.` : `Wrong passcode. ${r.triesLeft} tries left.`);
     });
   }
 
@@ -310,6 +336,7 @@ const PassportUI = (() => {
         <div><dt>Drive folder</dt><dd>${esc(p.id)} / ${esc(T.drive)}</dd></div>
         <div><dt>Backup codes left</dt><dd>${Passport.backupLeft(p)} of 10</dd></div>
         <div><dt>Fingerprint</dt><dd>${!can ? 'Not on this device' : fp ? 'On' : 'Off'}</dd></div>
+        <div><dt>Hidden key</dt><dd>${Passport.key(email) ? 'Open ✓' : 'Locked'}</dd></div>
         <div><dt>Saved in Drive</dt><dd>${!CLOUD ? 'Pretend mode' : p.dirty ? 'Not yet' : 'Yes ✓'}</dd></div>
       </dl>
       <div id="msg"></div>
@@ -325,7 +352,7 @@ const PassportUI = (() => {
     });
     on('#lock', 'click', () => { Passport.setUnlocked(APP, false); login(); });
     on('#other', 'click', () => { Passport.signOut(APP); Passport.setUnlocked(APP, false); welcome(); });
-    on('#nb', 'click', async () => { const codes = await Passport.newBackupCodes(email); backupCodes(codes, settings); });
+    on('#nb', 'click', () => needKey(async () => backupCodes(await Passport.newBackupCodes(email), settings), settings));
     on('#fpt', 'click', async () => {
       if (fp) { Passport.removeFingerprint(email, APP); return settings(); }
       try { await Passport.enrollFingerprint(email, APP, T.name); settings(); }
@@ -350,5 +377,5 @@ const PassportUI = (() => {
     route();
   }
 
-  return { start, settings };
+  return { start, settings, needKey };
 })();

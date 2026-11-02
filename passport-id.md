@@ -31,6 +31,13 @@ Why: stop re-explaining sign-in to every app. Build it once, copy it everywhere.
 
 **Rules:** no API keys in Drive. Passcodes only ever **scrambled**. Drive holds data, never code.
 
+**The hidden key** 🔑
+- One random key per passport. It locks private stuff (TaskNotes Secrets, WMM backups).
+- `passport.json` only holds **locked copies** of it: one opened by the passcode, one by each backup code.
+- The plain key is never saved. It's in memory only while unlocked with the passcode.
+- Fingerprint opens the app, but private stuff still asks for the passcode.
+- Reset with Google = a **new** key (old private stuff can't be opened).
+
 The phone keeps a copy of the passport, so the lock screen is fast and works offline.
 
 ---
@@ -194,4 +201,5 @@ How an app adds it: [PASSPORT.md](PASSPORT.md).
 - 1 Nov 2026: ID hidden on login, shown in Settings only
 - 2 Nov 2026: Drive instead of Firebase, just Darren, Reset with Google, v0.2 built
 - 2 Nov 2026: switched to WMM's Google key, so every app shares one key
+- 2 Nov 2026: hidden key added (v0.3)
 - 2 Nov 2026: one top folder "App data - DON'T DELETE" holds the ID folder and all app data
