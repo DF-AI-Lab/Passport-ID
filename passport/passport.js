@@ -1,12 +1,15 @@
 // Passport — core logic (no screens here; see ui.js).
-// DEMO VERSION: data is kept in this browser (localStorage) as pretend data.
-// The real version swaps the storage + lockout for Firebase (server side).
+// The passport (ID, name, email, scrambled passcode + backup codes) lives in YOUR Google Drive:
+//   DF123456/passport.json   (see google.js)
+// This phone keeps a copy so the lock screen works fast and offline.
+// No client ID in config.js = pretend mode (this phone only, no Google).
 
 const Passport = (() => {
-  const VERSION = '0.1-demo';
-  const KEY = 'passport-demo-v1';
+  const VERSION = '0.2';
+  const cloud = typeof PassportCloud !== 'undefined' && PassportCloud.enabled;
+  const KEY = cloud ? 'passport-v1' : 'passport-demo-v1';
   const MAX_TRIES = 5;          // wrong passcodes before lock
-  const LOCK_MS = 30 * 1000;    // demo: 30 seconds. Real: longer, enforced by server.
+  const LOCK_MS = cloud ? 5 * 60 * 1000 : 30 * 1000; // real: 5 min, pretend: 30s
   const ITER = 100000;          // PBKDF2 rounds (scrambling strength)
 
   // ---------- storage ----------
@@ -17,6 +20,63 @@ const Passport = (() => {
   function save(db) {
     try { localStorage.setItem(KEY, JSON.stringify(db)); } catch { /* private mode etc. */ }
   }
+
+  // ---------- Drive sync ----------
+  // what goes to Drive: never fingerprints (they belong to one phone) or local notes
+  const LOCAL_ONLY = ['fingerprints', 'dirty', 'fileId', 'folderId'];
+  const forDrive = (p) => Object.fromEntries(Object.entries(p).filter(([k]) => !LOCAL_ONLY.includes(k)));
+
+  // mark changed + try to save to Drive in the background
+  function changed(db, p) {
+    p.updated = Date.now(); p.dirty = cloud; save(db);
+    if (cloud) sync(p.email).catch(() => {});
+  }
+
+  // save this passport to Drive. interactive = may open Google's pop-up (only from a tap)
+  // one save at a time, so we never make two passport.json files
+  let queue = Promise.resolve();
+  async function sync(email, interactive) {
+    if (!cloud) return 'off';
+    const e = norm(email);
+    if (!find(e)) return 'none';
+    if (!PassportCloud.hasToken()) { if (!interactive) return 'later'; await PassportCloud.ensureToken(e); }
+    const run = async () => {
+      const p = load().passports[e];
+      if (!p.dirty && p.fileId) return 'saved';
+      const sent = p.updated;
+      const r = await PassportCloud.push(forDrive(p), p.fileId);
+      const db = load(); const now = db.passports[e];
+      Object.assign(now, r);
+      if (now.updated === sent) now.dirty = false; // changed again meanwhile? stay dirty
+      save(db);
+      return now.dirty ? run() : 'saved';
+    };
+    return (queue = queue.then(run, run));
+  }
+
+  // after Google sign-in: fetch the passport from Drive (null = none yet)
+  async function pull(email) {
+    if (!cloud) return find(email);
+    const r = await PassportCloud.pull();
+    const db = load(); const e = norm(email);
+    if (!r) { const p = db.passports[e]; if (p) await sync(e).catch(() => {}); return p || null; }
+    const remote = r.data, local = db.passports[e];
+    let p;
+    if (local && local.dirty && local.updated > (remote.updated || 0)) {
+      // this phone has newer changes: keep them, but never "un-use" a backup code
+      p = local;
+      const used = new Set(remote.backup.filter((b) => b.used).map((b) => b.h));
+      p.backup.forEach((b) => { if (used.has(b.h)) b.used = true; });
+    } else {
+      p = { ...remote, fingerprints: local?.fingerprints || {}, dirty: false };
+    }
+    p.email = e; p.fileId = r.fileId; p.folderId = r.folderId;
+    db.passports[e] = p; save(db);
+    if (p.dirty) await sync(e).catch(() => {});
+    return p;
+  }
+
+  const needsSync = (email) => cloud && !!find(email)?.dirty;
 
   // ---------- scrambling (never store plain codes) ----------
   const enc = new TextEncoder();
@@ -62,7 +122,7 @@ const Passport = (() => {
       backup: stored, fails: 0, lockUntil: 0, fingerprints: {},
       created: new Date().toISOString(),
     };
-    save(db);
+    changed(db, db.passports[e]);
     return { passport: db.passports[e], codes };
   }
 
@@ -74,7 +134,7 @@ const Passport = (() => {
   function recordFail(db, p) {
     p.fails += 1;
     if (p.fails >= MAX_TRIES) { p.lockUntil = Date.now() + LOCK_MS; p.fails = 0; }
-    save(db);
+    changed(db, p);
     return { ok: false, triesLeft: p.lockUntil > Date.now() ? 0 : MAX_TRIES - p.fails, lockedMs: Math.max(0, p.lockUntil - Date.now()) };
   }
 
@@ -84,7 +144,8 @@ const Passport = (() => {
     if (!p) return { ok: false, triesLeft: 0, lockedMs: 0 };
     if (p.lockUntil > Date.now()) return { ok: false, triesLeft: 0, lockedMs: p.lockUntil - Date.now() };
     if (isPasscode(passcode) && (await scramble(p.salt, 'pass:' + passcode)) === p.pass) {
-      p.fails = 0; save(db); return { ok: true };
+      if (p.fails) { p.fails = 0; changed(db, p); }
+      return { ok: true };
     }
     return recordFail(db, p);
   }
@@ -98,7 +159,7 @@ const Passport = (() => {
     if (clean.length === 8) {
       const h = await scramble(p.salt, 'backup:' + clean.slice(0, 4) + '-' + clean.slice(4));
       const hit = p.backup.find((b) => !b.used && b.h === h);
-      if (hit) { hit.used = true; p.fails = 0; save(db); return { ok: true, left: backupLeft(p) }; }
+      if (hit) { hit.used = true; p.fails = 0; changed(db, p); return { ok: true, left: backupLeft(p) }; }
     }
     return recordFail(db, p);
   }
@@ -109,13 +170,13 @@ const Passport = (() => {
     if (!isPasscode(passcode)) throw new Error('Passcode must be 6 numbers.');
     const db = load(); const p = db.passports[norm(email)];
     p.pass = await scramble(p.salt, 'pass:' + passcode);
-    save(db);
+    changed(db, p);
   }
 
   async function newBackupCodes(email) {
     const db = load(); const p = db.passports[norm(email)];
     const { codes, stored } = await makeBackupCodes(p.salt);
-    p.backup = stored; save(db);
+    p.backup = stored; changed(db, p);
     return codes;
   }
 
@@ -137,7 +198,7 @@ const Passport = (() => {
 
   // ---------- fingerprint (passkeys / WebAuthn) ----------
   // The fingerprint never leaves the phone. Linked to this phone + this web address.
-  // DEMO: we only check the phone said "yes". Real version: server verifies the signature.
+  // The phone does the check and only says "yes, it's them". It unlocks this phone's copy.
   const b64 = (buf) => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
   const unb64 = (s) => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/')), (c) => c.charCodeAt(0));
 
@@ -179,12 +240,13 @@ const Passport = (() => {
     if (p) { delete p.fingerprints[app]; save(db); }
   }
 
+  // only clears this phone. Your Drive copy stays.
   function resetAll() {
     try { localStorage.removeItem(KEY); sessionStorage.clear(); } catch {}
   }
 
   return {
-    VERSION, MAX_TRIES, find, create, lockedFor, checkPasscode, useBackupCode, backupLeft,
+    VERSION, MAX_TRIES, cloud, sync, pull, needsSync, find, create, lockedFor, checkPasscode, useBackupCode, backupLeft,
     setPasscode, newBackupCodes, appAccount, setAppAccount, signOut, appPref, setAppPref,
     isUnlocked, setUnlocked, fingerprintAvailable, enrollFingerprint, verifyFingerprint,
     removeFingerprint, resetAll, isPasscode,

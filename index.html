@@ -22,7 +22,7 @@
 </head>
 <body>
 <nav class="demo-bar" aria-label="Demo apps">
-  <strong>Demo · pretend data</strong>
+  <strong id="mode">Demo</strong>
   <a href="?app=wmm">WMM</a>
   <a href="?app=ft">Food Tracker</a>
   <a href="?app=tasknotes">TaskNotes</a>
@@ -31,9 +31,12 @@
 </nav>
 <div id="app"></div>
 
+<script src="passport/config.js"></script>
+<script src="passport/google.js"></script>
 <script src="passport/passport.js"></script>
 <script src="passport/ui.js"></script>
 <script>
+  document.getElementById('mode').textContent = Passport.cloud ? 'Demo · real Google + Drive' : 'Demo · pretend data';
   const apps = ['wmm', 'ft', 'tasknotes', 'bare'];
   let app = new URLSearchParams(location.search).get('app');
   if (!apps.includes(app)) app = 'wmm';
@@ -41,7 +44,7 @@
     if (a.getAttribute('href') === '?app=' + app) a.setAttribute('aria-current', 'page');
   });
   document.getElementById('reset').addEventListener('click', () => {
-    if (confirm('Wipe all pretend passports on this device?')) { Passport.resetAll(); location.reload(); }
+    if (confirm(Passport.cloud ? 'Forget passports on this phone? (Your Drive copy stays.)' : 'Wipe all pretend passports on this device?')) { Passport.resetAll(); location.reload(); }
   });
   fetch('themes/' + app + '.json')
     .then((r) => r.json())

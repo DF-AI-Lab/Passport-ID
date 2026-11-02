@@ -35,25 +35,48 @@ const PassportUI = (() => {
   const on = (s, ev, fn) => { const el = $(s); if (el) el.addEventListener(ev, fn); };
   const busy = (btn, text) => { btn.disabled = true; btn.dataset.t = btn.textContent; btn.textContent = text; };
 
-  function unlock() { Passport.setUnlocked(APP, true); autoFinger = true; route(); }
+  function unlock() {
+    Passport.setUnlocked(APP, true); autoFinger = true;
+    const email = Passport.appAccount(APP);
+    // quiet save to Drive (only if Google is still signed in), then carry on
+    if (Passport.needsSync(email)) return Passport.sync(email).catch(() => {}).then(route);
+    route();
+  }
+  const CLOUD = Passport.cloud;
 
   // ---------- router ----------
   function route() {
     const email = Passport.appAccount(APP);
     if (!email) return welcome();
     const p = Passport.find(email);
-    if (!p) return setup(email);
+    if (!p) return CLOUD ? welcome() : setup(email);
     if (!Passport.isUnlocked(APP)) return login();
     return onUnlocked ? onUnlocked(p, settings) : settings();
   }
 
   // 1. first open
-  function welcome() {
+  function welcome(msg) {
     show(`${appSection()}
       <div class="ps-grow"></div>
+      ${err(typeof msg === 'string' ? msg : '')}
       <button class="ps-btn ps-google" id="g">${icon.google} Continue with Google</button>
       <p class="ps-small">Pick the Google account that has your Drive.</p>`);
-    on('#g', 'click', google);
+    on('#g', 'click', CLOUD ? realGoogle : google);
+  }
+
+  // real Google pop-up, then look for your passport in Drive
+  async function realGoogle() {
+    busy($('#g'), 'Opening Google…');
+    try {
+      const me = await PassportCloud.signIn();
+      $('#g').textContent = 'Looking for your passport…';
+      Passport.setAppAccount(APP, me.email);
+      Passport.setUnlocked(APP, false);
+      const p = await Passport.pull(me.email);
+      p ? found(p) : setup(me.email, '', me.name);
+    } catch (e) {
+      welcome(/popup|access_denied/.test(e.message) ? 'Google sign-in was closed. Try again.' : 'Couldn\'t reach Google or Drive. Check your signal and try again.');
+    }
   }
 
   // DEMO ONLY: stands in for the real Google pop-up
@@ -92,13 +115,13 @@ const PassportUI = (() => {
   }
 
   // 2. first time: name + passcode
-  function setup(email, msg) {
+  function setup(email, msg, name) {
     show(`${appSection(true)}
       <p class="ps-kicker">FIRST TIME ONLY</p>
       <h2 class="ps-h">Set up your passport</h2>
       <form id="f" class="ps-form">
         <label class="ps-label" for="nm">Full name</label>
-        <input class="ps-input" id="nm" autocomplete="name" placeholder="Darren Fawcett" required>
+        <input class="ps-input" id="nm" autocomplete="name" placeholder="Darren Fawcett" value="${esc(name || '')}" required>
         <label class="ps-label" for="em">Email (from Google)</label>
         <input class="ps-input" id="em" value="${esc(email)}" readonly>
         ${passField('pc', 'Make a 6-digit passcode')}
@@ -110,10 +133,11 @@ const PassportUI = (() => {
       e.preventDefault();
       const name = $('#nm').value.trim(), a = $('#pc').value, b = $('#pc2').value;
       if (!name) return setup(email, 'Type your name.');
-      if (!Passport.isPasscode(a)) return setup(email, 'Passcode must be exactly 6 numbers.');
-      if (a !== b) return setup(email, 'The two passcodes don\'t match.');
+      if (!Passport.isPasscode(a)) return setup(email, 'Passcode must be exactly 6 numbers.', name);
+      if (a !== b) return setup(email, 'The two passcodes don\'t match.', name);
       busy(e.submitter || $('button[type=submit]'), 'Making your passport…');
       const { codes } = await Passport.create({ email, name, passcode: a });
+      if (CLOUD) await Passport.sync(email).catch(() => {}); // save to Drive now (Settings shows if it didn't)
       backupCodes(codes, fingerOffer);
     });
   }
@@ -222,8 +246,18 @@ const PassportUI = (() => {
         <button class="ps-btn" type="submit" id="go">Continue</button>
         <button class="ps-link" type="button" id="back">Back</button>
       </form>
-      <p class="ps-small">No codes left? The real version emails you a reset link.</p>`);
+      <button class="ps-link" id="rg">No codes left? Reset with Google</button>`);
     on('#back', 'click', () => login());
+    // Google is the real key: prove it's your account, then make a new passcode
+    on('#rg', 'click', async () => {
+      if (!CLOUD) return backupLogin('Pretend mode: reset with Google works in the real version.');
+      try {
+        const me = await PassportCloud.signIn();
+        if (me.email.toLowerCase() !== email) return backupLogin('That\'s a different Google account.');
+        await Passport.pull(email);
+        newPasscode(Passport.backupLeft(Passport.find(email)));
+      } catch { backupLogin('Google sign-in didn\'t finish. Try again.'); }
+    });
     on('#f', 'submit', async (e) => {
       e.preventDefault(); busy($('#go'), 'Checking…');
       const r = await Passport.useBackupCode(email, $('#bc').value);
@@ -234,7 +268,7 @@ const PassportUI = (() => {
 
   function newPasscode(left, msg) {
     show(`<h2 class="ps-h">Make a new passcode</h2>
-      <p class="ps-sub">Backup code used. ${left} left.</p>
+      <p class="ps-sub">${left} backup codes left.</p>
       <form id="f" class="ps-form">
         ${passField('pc', 'New 6-digit passcode')}
         ${passField('pc2', 'Type it again')}
@@ -267,12 +301,19 @@ const PassportUI = (() => {
         <div><dt>Drive folder</dt><dd>${esc(p.id)} / ${esc(T.drive)}</dd></div>
         <div><dt>Backup codes left</dt><dd>${Passport.backupLeft(p)} of 10</dd></div>
         <div><dt>Fingerprint</dt><dd>${!can ? 'Not on this device' : fp ? 'On' : 'Off'}</dd></div>
+        <div><dt>Saved in Drive</dt><dd>${!CLOUD ? 'Pretend mode' : p.dirty ? 'Not yet' : 'Yes ✓'}</dd></div>
       </dl>
       <div id="msg"></div>
+      ${CLOUD && p.dirty ? '<button class="ps-btn" id="sv">Save to Drive now</button>' : ''}
       ${can ? `<button class="ps-btn ps-ghost" id="fpt">${fp ? 'Turn fingerprint off' : 'Turn fingerprint on'}</button>` : ''}
       <button class="ps-btn ps-ghost" id="nb">Make new backup codes</button>
       <button class="ps-btn" id="lock">Lock now</button>
       <button class="ps-link" id="other">Use another Google account</button>`);
+    on('#sv', 'click', async () => {
+      busy($('#sv'), 'Saving…');
+      try { await Passport.sync(email, true); settings(); }
+      catch { await settings(); $('#msg').innerHTML = err('Couldn\'t save to Drive. Try again.'); }
+    });
     on('#lock', 'click', () => { Passport.setUnlocked(APP, false); login(); });
     on('#other', 'click', () => { Passport.signOut(APP); Passport.setUnlocked(APP, false); welcome(); });
     on('#nb', 'click', async () => { const codes = await Passport.newBackupCodes(email); backupCodes(codes, settings); });

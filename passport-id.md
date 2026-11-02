@@ -8,7 +8,7 @@ Every app follows this. If an app is different, write why under "Differences".
 ## 1. The idea
 
 - One **ID** (e.g. `DF123456`) = your passport
-- **Anyone** can sign up, not just Darren
+- Just for **Darren** (each person's passport would sit in their own Drive anyway)
 - **Same sign-in** on every app: Google + 6-digit passcode
 - **10 backup codes** to get back in if locked out
 - **Same login steps** on every app, but each app keeps **its own look**
@@ -18,17 +18,20 @@ Why: stop re-explaining sign-in to every app. Build it once, copy it everywhere.
 
 ---
 
-## 2. Three places (each has one job)
+## 2. Two places (each has one job)
 
 | Place | Holds | Why |
 |---|---|---|
-| **Firebase** (one project for all apps) | ID, name, email, passcode + backup codes (scrambled) | Built for logins, Google keeps it safe |
-| **Google Drive** `DF123456/` | App data + backups | Easy to see, free, already used by WMM |
+| **Google Drive** `DF123456/` | `passport.json` (ID, name, email, scrambled passcode + backup codes) and app data | Yours, free, protected by your Google login |
 | **GitHub** (this repo) | Shared Passport code + instructions | One master copy |
+
+**No Firebase.** An app that needs it for its own stuff (like FT) keeps its own.
 
 **API keys are out of scope.** They stay in each app's Cloudflare Worker, as now.
 
-**Rule:** secrets never go in Drive. Drive is for data only, never code.
+**Rules:** no API keys in Drive. Passcodes only ever **scrambled**. Drive holds data, never code.
+
+The phone keeps a copy of the passport, so the lock screen is fast and works offline.
 
 ---
 
@@ -36,6 +39,7 @@ Why: stop re-explaining sign-in to every app. Build it once, copy it everywhere.
 
 ```
 DF123456/
+  passport.json   ← the passport
   WMM/
   FT/
   Todo/
@@ -61,11 +65,11 @@ Use the Google account that has your Drive and Sheets.
 - Linked to one phone + one app's web address, so turn it on once per app, per phone
 - Passcode always works as the fallback
 
-**Second app:** sign in with Google, Firebase finds your ID, "Welcome back". No sign-up again.
+**Second app / new phone:** sign in with Google, Passport finds `passport.json` in Drive, "Welcome back". No sign-up again.
 
 **Locked out:**
 1. Forgot passcode → use 1 of 10 backup codes (each works once)
-2. No backup codes left → reset by email (last resort)
+2. No backup codes left → **Reset with Google** (sign in again with the same Google account, make a new passcode)
 
 ---
 
@@ -99,7 +103,7 @@ Mock: https://claude.ai/artifact/CA6YdkBh7zcfVAgyzxiZRW
 
 This repo is the **master copy**. Never delete it.
 
-In an app, say: **"Add Passport ID from passport-id"**. Claude then adds:
+In an app, say: **"Add Passport ID from Passport-ID"**. Claude follows [PASSPORT.md](PASSPORT.md) and adds:
 
 ```
 passport/
@@ -129,17 +133,22 @@ Each app keeps its **own copy**, so it doesn't need this repo to run.
 - No DOB in the ID (not needed)
 - No real personal data in public repos
 - Passcodes + backup codes stored scrambled only
-- **Lock the account for a while after 5 wrong passcode tries** (makes a short code safe)
-- Firebase rules: each person can only read their own data
+- **Lock for 5 minutes after 5 wrong passcode tries** (makes a short code safe)
+- Google login is the real lock. The passcode guards the screen on your phone.
+- Passport only gets `drive.file`: it sees the files it made, nothing else in Drive
 
 ---
 
-## 9. Why Firebase (not "encrypt everything in Drive")
+## 9. Why Drive, not Firebase
 
-- Encrypting Drive yourself = you hold the key. Lose it → lose everything.
-- Home-made security is easy to get wrong.
-- Firebase is used by millions of apps and is free at our size.
-- FT already uses Firebase, so it's proven for us.
+- It's just Darren, so no shared server is needed
+- Google sign-in already protects Drive
+- One less thing to set up, pay for or keep safe
+- Trade-off: the 5-tries lock is per phone (Google login still guards Drive)
+
+One-time setup: a Google client ID. See [SETUP.md](SETUP.md).
+
+How an app adds it: [PASSPORT.md](PASSPORT.md).
 
 ---
 
@@ -165,7 +174,7 @@ Each app keeps its **own copy**, so it doesn't need this repo to run.
 
 ## Decided
 
-- Anyone can sign up, not just Darren
+- Just Darren, passport lives in Drive, no Firebase
 - Google sign-in links everything (no separate username)
 - API keys out of scope (stay in Cloudflare)
 - Each app keeps its own look; login steps are the same
@@ -179,3 +188,4 @@ Each app keeps its **own copy**, so it doesn't need this repo to run.
 - 1 Nov 2026: Google sign-in, open to anyone, per-app themes, how apps get it, updates
 - 1 Nov 2026: fingerprint login added
 - 1 Nov 2026: ID hidden on login, shown in Settings only
+- 2 Nov 2026: Drive instead of Firebase, just Darren, Reset with Google, v0.2 built
