@@ -60,7 +60,8 @@ const PassportUI = (() => {
       <div class="ps-grow"></div>
       ${err(typeof msg === 'string' ? msg : '')}
       <button class="ps-btn ps-google" id="g">${icon.google} Continue with Google</button>
-      <p class="ps-small">Pick the Google account that has your Drive.</p>`);
+      <p class="ps-small">Pick the Google account that has your Drive.</p>
+      ${CLOUD ? '<p class="ps-small">On Google\'s screen, <b>tick the Google Drive box ☑</b> so your passport can be saved.</p>' : ''}`);
     on('#g', 'click', CLOUD ? realGoogle : google);
   }
 
