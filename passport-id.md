@@ -172,12 +172,12 @@ How an app adds it: [PASSPORT.md](PASSPORT.md).
 ## Open questions
 
 - ID format: `DF` + 6 numbers? (`DF` for everyone, or each person's initials?)
-- Can one ID have two emails linked (work + main)?
 - Which repo is TaskNotes?
 
 ## Decided
 
 - Just Darren, passport lives in Drive, no Firebase
+- Google accounts: **df.ai.lab.hq@gmail.com = demos/testing**, **darrenfawcett1980@gmail.com = real use**. Each gets its own passport.
 - ONE Google key for every app (project "Wheres My Money Lite"), so all apps see the same Drive files
 - Google sign-in links everything (no separate username)
 - API keys out of scope (stay in Cloudflare)
