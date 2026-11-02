@@ -22,7 +22,7 @@ Why: stop re-explaining sign-in to every app. Build it once, copy it everywhere.
 
 | Place | Holds | Why |
 |---|---|---|
-| **Google Drive** `DF123456/` | `passport.json` (ID, name, email, scrambled passcode + backup codes) and app data | Yours, free, protected by your Google login |
+| **Google Drive** `App data - DON'T DELETE/DF123456/` | `passport.json` (ID, name, email, scrambled passcode + backup codes) and app data | Yours, free, protected by your Google login |
 | **GitHub** (this repo) | Shared Passport code + instructions | One master copy |
 
 **No Firebase.** An app that needs it for its own stuff (like FT) keeps its own.
@@ -37,12 +37,15 @@ The phone keeps a copy of the passport, so the lock screen is fast and works off
 
 ## 3. Drive folders
 
+Everything sits in **one** top folder:
+
 ```
-DF123456/
-  passport.json   ← the passport
-  WMM/
-  FT/
-  Todo/
+App data - DON'T DELETE/
+  DF123456/
+    passport.json   ← the passport
+    WMM/
+    FT/
+    Todo/
 ```
 
 Use the Google account that has your Drive and Sheets.
@@ -191,3 +194,4 @@ How an app adds it: [PASSPORT.md](PASSPORT.md).
 - 1 Nov 2026: ID hidden on login, shown in Settings only
 - 2 Nov 2026: Drive instead of Firebase, just Darren, Reset with Google, v0.2 built
 - 2 Nov 2026: switched to WMM's Google key, so every app shares one key
+- 2 Nov 2026: one top folder "App data - DON'T DELETE" holds the ID folder and all app data

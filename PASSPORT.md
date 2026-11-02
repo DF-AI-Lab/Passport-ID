@@ -62,10 +62,12 @@ fetch('passport/theme.json').then((r) => r.json()).then((theme) =>
 ## 4. Saving app data to Drive
 
 ```js
-const folderId = await PassportCloud.appFolder(passport.id, theme.drive); // DF123456/WMM
+const folderId = await PassportCloud.appFolder(passport.id, theme.drive);
+// = App data - DON'T DELETE / DF123456 / WMM
 ```
 
-Save the app's files inside that folder.
+Save **all** the app's files inside that folder. Nothing loose in My Drive.
+If the app already has files elsewhere in Drive, move them in here.
 
 ---
 

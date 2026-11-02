@@ -9,6 +9,7 @@ const PassportCloud = (() => {
   const UPLOAD = 'https://www.googleapis.com/upload/drive/v3/files';
   const FOLDER = 'application/vnd.google-apps.folder';
   const TOKEN_KEY = 'passport-google-token';
+  const ROOT = "App data - DON'T DELETE"; // one top folder for everything
   const enabled = !!CLIENT_ID;
 
   // ---------- token (kept for this tab only, about 1 hour) ----------
@@ -90,7 +91,10 @@ const PassportCloud = (() => {
   }
   const folder = async (name, parent) => (await findFolder(name, parent)) || makeFolder(name, parent);
 
-  // ---------- the passport file: DF123456/passport.json ----------
+  // App data - DON'T DELETE / DF123456
+  const idFolder = async (passportId) => folder(passportId, await folder(ROOT));
+
+  // ---------- the passport file: App data - DON'T DELETE/DF123456/passport.json ----------
   async function pull() {
     const r = await call(q(`name='passport.json' and trashed=false`));
     const f = r.files[0]; if (!f) return null;
@@ -106,7 +110,7 @@ const PassportCloud = (() => {
         return { fileId };
       } catch (e) { if (e.message !== 'Drive error 404') throw e; } // deleted? make it again
     }
-    const folderId = await folder(data.id);
+    const folderId = await idFolder(data.id);
     const b = 'passport' + Math.random().toString(16).slice(2);
     const meta = { name: 'passport.json', mimeType: 'application/json', parents: [folderId] };
     const r = await call(UPLOAD + '?uploadType=multipart&fields=id', {
@@ -116,8 +120,8 @@ const PassportCloud = (() => {
     return { fileId: r.id, folderId };
   }
 
-  // each app's own folder: DF123456/WMM etc. Apps call this to save their data.
-  async function appFolder(passportId, name) { return folder(name, await folder(passportId)); }
+  // each app's own folder: App data - DON'T DELETE/DF123456/WMM etc. Apps save their data in here.
+  async function appFolder(passportId, name) { return folder(name, await idFolder(passportId)); }
 
-  return { enabled, hasToken, signIn, ensureToken, pull, push, appFolder };
+  return { ROOT, enabled, hasToken, signIn, ensureToken, pull, push, appFolder };
 })();
