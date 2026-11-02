@@ -39,10 +39,13 @@ const PassportCloud = (() => {
       const client = google.accounts.oauth2.initTokenClient({
         client_id: CLIENT_ID, scope: SCOPES,
         callback: (r) => (r.error ? fail(new Error(r.error)) : ok(r)),
+        include_granted_scopes: true,
         error_callback: (e) => fail(new Error(e.type || 'popup_closed')),
       });
       client.requestAccessToken({ prompt: pick ? 'select_account' : '', login_hint: hint || undefined });
     });
+    // Google shows a "Drive" tick box. Not ticked = Passport can't save, so say so.
+    if (!google.accounts.oauth2.hasGrantedAllScopes(res, 'https://www.googleapis.com/auth/drive.file')) throw new Error('no_drive');
     const t = { token: res.access_token, exp: Date.now() + res.expires_in * 1000, email: hint || '' };
     try { sessionStorage.setItem(TOKEN_KEY, JSON.stringify(t)); } catch {}
     return t;
@@ -50,7 +53,9 @@ const PassportCloud = (() => {
 
   async function call(url, opts = {}) {
     const t = saved(); if (!t) throw new Error('signed_out');
-    const r = await fetch(url, { ...opts, headers: { Authorization: 'Bearer ' + t.token, ...(opts.headers || {}) } });
+    const go = () => fetch(url, { ...opts, headers: { Authorization: 'Bearer ' + t.token, ...(opts.headers || {}) } });
+    let r;
+    try { r = await go(); } catch { await new Promise((ok) => setTimeout(ok, 800)); r = await go(); } // one retry on a signal blip
     if (r.status === 401) { try { sessionStorage.removeItem(TOKEN_KEY); } catch {} throw new Error('signed_out'); }
     if (!r.ok) throw new Error('Drive error ' + r.status);
     return r.status === 204 ? null : r.json();

@@ -64,6 +64,14 @@ const PassportUI = (() => {
     on('#g', 'click', CLOUD ? realGoogle : google);
   }
 
+  function signInError(e) {
+    const m = e.message || String(e);
+    const say = m === 'no_drive' ? 'Please tick the <b>Google Drive</b> box on Google\'s screen, so your passport can be saved.'
+      : /popup|access_denied/.test(m) ? 'Google sign-in was closed. Try again.'
+      : 'Couldn\'t reach Google or Drive. Try again.';
+    return `${say}<br><small>(${esc(m)})</small>`;
+  }
+
   // real Google pop-up, then look for your passport in Drive
   async function realGoogle() {
     busy($('#g'), 'Opening Google…');
@@ -75,7 +83,7 @@ const PassportUI = (() => {
       const p = await Passport.pull(me.email);
       p ? found(p) : setup(me.email, '', me.name);
     } catch (e) {
-      welcome(/popup|access_denied/.test(e.message) ? 'Google sign-in was closed. Try again.' : 'Couldn\'t reach Google or Drive. Check your signal and try again.');
+      welcome(signInError(e));
     }
   }
 
@@ -256,7 +264,7 @@ const PassportUI = (() => {
         if (me.email.toLowerCase() !== email) return backupLogin('That\'s a different Google account.');
         await Passport.pull(email);
         newPasscode(Passport.backupLeft(Passport.find(email)));
-      } catch { backupLogin('Google sign-in didn\'t finish. Try again.'); }
+      } catch (e) { backupLogin(signInError(e)); }
     });
     on('#f', 'submit', async (e) => {
       e.preventDefault(); busy($('#go'), 'Checking…');
