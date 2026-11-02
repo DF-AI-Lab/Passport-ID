@@ -21,7 +21,7 @@ passport/
 ```
 
 Add at the bottom of the app's `passport/PASSPORT.md`:
-`This app has Passport v0.3. Update from DF-AI-Lab/Passport-ID.`
+`This app has Passport v0.3.2. Update from DF-AI-Lab/Passport-ID.`
 
 ---
 
