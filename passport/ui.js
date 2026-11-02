@@ -342,14 +342,18 @@ const PassportUI = (() => {
       <div id="msg"></div>
       ${CLOUD && p.dirty ? '<button class="ps-btn" id="sv">Save to Drive now</button>' : ''}
       ${can ? `<button class="ps-btn ps-ghost" id="fpt">${fp ? 'Turn fingerprint off' : 'Turn fingerprint on'}</button>` : ''}
+      <button class="ps-btn ps-ghost" id="cpw">Change passcode</button>
       <button class="ps-btn ps-ghost" id="nb">Make new backup codes</button>
-      <button class="ps-btn" id="lock">Lock now</button>
+      ${onUnlocked ? `<button class="ps-btn" id="back">Back to ${esc(T.name)}</button>` : ''}
+      <button class="ps-btn${onUnlocked ? ' ps-ghost' : ''}" id="lock">Lock now</button>
       <button class="ps-link" id="other">Use another Google account</button>`);
     on('#sv', 'click', async () => {
       busy($('#sv'), 'Saving…');
       try { await Passport.sync(email, true); settings(); }
       catch { await settings(); $('#msg').innerHTML = err('Couldn\'t save to Drive. Try again.'); }
     });
+    on('#back', 'click', route);
+    on('#cpw', 'click', () => needKey(() => newPasscode(Passport.backupLeft(Passport.find(email))), settings));
     on('#lock', 'click', () => { Passport.setUnlocked(APP, false); login(); });
     on('#other', 'click', () => { Passport.signOut(APP); Passport.setUnlocked(APP, false); welcome(); });
     on('#nb', 'click', () => needKey(async () => backupCodes(await Passport.newBackupCodes(email), settings), settings));
@@ -377,5 +381,5 @@ const PassportUI = (() => {
     route();
   }
 
-  return { start, settings, needKey };
+  return { start, settings, needKey, route };
 })();

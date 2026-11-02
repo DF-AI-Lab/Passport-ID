@@ -128,5 +128,5 @@ const PassportCloud = (() => {
   // each app's own folder: App data - DON'T DELETE/DF123456/WMM etc. Apps save their data in here.
   async function appFolder(passportId, name) { return folder(name, await idFolder(passportId)); }
 
-  return { ROOT, enabled, hasToken, signIn, ensureToken, pull, push, appFolder };
+  return { ROOT, enabled, hasToken, token: () => saved()?.token || '', signIn, ensureToken, pull, push, appFolder };
 })();

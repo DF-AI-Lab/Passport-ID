@@ -168,7 +168,7 @@ How an app adds it: [PASSPORT.md](PASSPORT.md).
 |---|---|---|---|
 | WMM | first name + passcode | phone + Drive backup | yes |
 | FT (Food-Tracker) | Google (Firebase) | Firestore | yes (closest already) |
-| TaskNotes (Todo / Notes) | first name | ? | yes |
+| TaskNotes (`tasknotes-mcp`) | **Passport v0.3.1** ✅ | Sheet in DF/Todo | done (branch, not live yet) |
 
 ## Differences (write here if an app breaks a rule, and why)
 
@@ -179,7 +179,6 @@ How an app adds it: [PASSPORT.md](PASSPORT.md).
 ## Open questions
 
 - ID format: `DF` + 6 numbers? (`DF` for everyone, or each person's initials?)
-- Which repo is TaskNotes?
 
 ## Decided
 
@@ -202,4 +201,5 @@ How an app adds it: [PASSPORT.md](PASSPORT.md).
 - 2 Nov 2026: Drive instead of Firebase, just Darren, Reset with Google, v0.2 built
 - 2 Nov 2026: switched to WMM's Google key, so every app shares one key
 - 2 Nov 2026: hidden key added (v0.3)
+- 2 Nov 2026: v0.3.1 (change passcode, back to app); TaskNotes is the first app with Passport
 - 2 Nov 2026: one top folder "App data - DON'T DELETE" holds the ID folder and all app data
