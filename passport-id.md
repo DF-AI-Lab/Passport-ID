@@ -166,13 +166,13 @@ How an app adds it: [PASSPORT.md](PASSPORT.md).
 
 | App | Login now | Data now | Moves to passport? |
 |---|---|---|---|
-| WMM | first name + passcode | phone + Drive backup | yes |
+| WMM Lite | **Passport v0.3.5** ✅ | phone + Drive backup | done (v0.67 on main, live + demo) |
 | FT (Food-Tracker) | Google (Firebase) | Firestore | yes (closest already) |
 | TaskNotes (`tasknotes-mcp`) | **Passport v0.3.1** ✅ | Sheet in DF/Todo | done (branch, not live yet) |
 
 ## Differences (write here if an app breaks a rule, and why)
 
-- **WMM (Where's My Money Lite, demo v0.61)**
+- **WMM (Where's My Money Lite, v0.67 live + demo)**
   - Backups must save after a **fingerprint** unlock (no hidden key then). So WMM locks each backup with a *public* key
     (can lock, can't open); its private key is stored locked by the hidden key. Opening still needs the passcode.
   - After the passcode, WMM keeps **its own derived key** (not the hidden key) in sessionStorage for that tab, because WMM
@@ -210,3 +210,6 @@ How an app adds it: [PASSPORT.md](PASSPORT.md).
 - 2 Nov 2026: hidden key added (v0.3)
 - 2 Nov 2026: v0.3.1 (change passcode, back to app); TaskNotes is the first app with Passport
 - 2 Nov 2026: one top folder "App data - DON'T DELETE" holds the ID folder and all app data
+- 2 Nov 2026: v0.3.2 lock screen shows the full Drive path; v0.3.3 Sign out button
+- 2-3 Nov 2026: v0.3.4 sign out keeps the Drive permission; v0.3.5 settings on one screen
+- 8 Nov 2026: v0.3.5 merged to main. WMM Lite v0.67 (Passport lock, live + demo) merged to main. WMM tests all pass (124 node + 275 browser)
