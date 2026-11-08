@@ -172,7 +172,14 @@ How an app adds it: [PASSPORT.md](PASSPORT.md).
 
 ## Differences (write here if an app breaks a rule, and why)
 
-- (none yet)
+- **WMM (Where's My Money Lite, demo v0.61)**
+  - Backups must save after a **fingerprint** unlock (no hidden key then). So WMM locks each backup with a *public* key
+    (can lock, can't open); its private key is stored locked by the hidden key. Opening still needs the passcode.
+  - After the passcode, WMM keeps **its own derived key** (not the hidden key) in sessionStorage for that tab, because WMM
+    reloads the page after every change. Gone on Lock now, the 5-minute lock, Sign out, or closing the tab.
+  - Old WMM backups (before Passport) still open with the **old WMM passcode**; WMM's old master key is kept, locked by the hidden key.
+  - theme.json logo is an `<img>` (the Lite icon) inside `"type": "svg"` (ui.js puts the value in as HTML).
+  - WMM's own Google sign-in for Drive is still there as a fallback; with a passport it uses the passport's Google account.
 
 ---
 
